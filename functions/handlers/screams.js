@@ -73,11 +73,53 @@ const getScream = (req, res) => {
             return res.status(500).json({ error: `Error fetching scream data: ${err}` });
         });
 
-}
+};
+
+
+// post comment to a scream
+const screamComment = (req, res) => {
+    let body = req.body.body.trim();
+    if (!body) {
+        return res.status(400).json({ error: "Comment body must be provided!" });
+    }
+    let commentData = {
+        userHandle: req.user.handle,
+        screamId: req.params.screamId,
+        body,
+        createdAt: new Date().toISOString(),
+        userImage: req.user.imgUrl
+    };
+
+    db
+        .doc(`screams/${req.params.screamId}`)
+        .get()
+        .then(scream => {
+            if (!scream.exists) {
+                return res.status(404).json({ error: "Scream does not exist" });
+            }
+            return db
+                .collection('comments')
+                .add(commentData);
+
+        })
+        .then(() => {
+            res.json(commentData);
+        })
+        .catch(err => {
+            console.error(`Error inserting the comment: ${err}`);
+            res.status(500).json({ error: err })
+
+        });
+
+
+
+};
+
 
 const deleteScream = (req, res) => {
 
-}
+
+};
 
 
 router.get('/', getAllScreams);
@@ -88,5 +130,6 @@ router.delete('/:screamId', FBAuth, deleteScream);
 // TODO like a scream
 // TODO unlike a scream
 // TODO comment on a scream
+router.post('/:screamId/comment', FBAuth, screamComment);
 
 module.exports = router;
