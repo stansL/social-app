@@ -1,7 +1,5 @@
 const functions = require('firebase-functions');
 const express = require('express');
-const { getAllScreams, postScream } = require('./handlers/screams');
-const { userSignup, userLogin } = require('./handlers/users');
 
 const usersRouter = require('./handlers/users');
 const screamsRouter = require('./handlers/screams');
