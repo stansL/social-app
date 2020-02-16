@@ -28,15 +28,20 @@ const postScream = (req, res) => {
     const newScream = {
         body,
         userHandle: req.user.handle,
-        createdAt: new Date().toISOString()
+        userImage: req.user.imgUrl,
+        createdAt: new Date().toISOString(),
+        likeCount: 0,
+        commentCount: 0
         // createdAt: admin.firestore.Timestamp.fromDate(new Date())
     }
     db
         .collection('screams')
         .add(newScream)
         .then(ref => {
+            const resScream = newScream;
+            resScream.screamId = ref.id;
             console.log(`Document written with ID of : ${ref.id}`);
-            res.json({ msg: `Document ${ref.id} created successfully!` });
+            res.json(resScream);
         })
         .catch(err => {
             res.status(500).json({ error: `Error occured: ${err}` })
@@ -107,13 +112,63 @@ const screamComment = (req, res) => {
         })
         .catch(err => {
             console.error(`Error inserting the comment: ${err}`);
-            res.status(500).json({ error: err })
+            res.status(500).json({ error: err });
 
         });
 
-
-
 };
+const likeScream = (req, res) => {
+    let screamId = req.params.screamId;
+    let likeData = {
+        screamId,
+        userHandle: req.user.handle
+    }
+    let screamData;
+    db
+        .doc(`/screams/${screamId}`)
+        .get()
+        .then(scream => {
+            if (!scream.exists) {
+                return res.status(404).json({ error: "Scream not found!" });
+            }
+            screamData = scream.data();
+            screamData.screamId = scream.id;
+
+            // Check if user already liked the same comment
+            return db
+                .collection('likes')
+                .where("userHandle", "==", likeData.userHandle).where("screamId", "==", likeData.screamId)
+                .limit(1)
+                .get();
+
+        })
+        .then(like => {
+            if (like.empty) {
+                return db
+                    .collection('likes')
+                    .add(likeData)
+                    .then(() => {
+                        screamData.likeCount++;
+                        return db
+                            .doc(`/screams/${screamId}`)
+                            .update({ likeCount: screamData.likeCount })
+                    })
+                    .then(() => {
+                        return res.json(screamData);
+                    })
+            }
+            else {
+                // user already liked the comment
+                return res.status(400).json({ msg: "User already liked the Scream" });
+            }
+        })
+        .catch(err => {
+            console.error(`Error inserting the like: ${err}`);
+            res.status(500).json({ error: err })
+        });
+};
+
+
 
 
 const deleteScream = (req, res) => {
@@ -122,13 +177,16 @@ const deleteScream = (req, res) => {
 };
 
 
+
 router.get('/', getAllScreams);
 router.post('/', FBAuth, postScream);
 router.get('/:screamId', FBAuth, getScream);
 // TODO
 router.delete('/:screamId', FBAuth, deleteScream);
 // TODO like a scream
+router.post('/:screamId/like', FBAuth, likeScream);
 // TODO unlike a scream
+// router.post('/:screamId/unlike', FBAuth, unlikeScream);
 // TODO comment on a scream
 router.post('/:screamId/comment', FBAuth, screamComment);
 

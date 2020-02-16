@@ -17,6 +17,7 @@ let db = {
             userHandle: "user",
             body: "the scream body",
             createdAt: "2020-02-11T08:50:06.577Z",
+            userImageL: "Some Image URL",
             likeCount: 5,
             commentCount: 3
         }
