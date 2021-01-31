@@ -4,7 +4,7 @@ const router = express.Router();
 const { admin, db } = require('../util/admin');
 const firebase = require('firebase');
 const config = require('../util/config');
-const { validateSignupData, validateLoginData } = require('../util/validators');
+const { validateSignupData, validateLoginData, reduceUserDetails } = require('../util/validators');
 const Busboy = require('busboy');
 const path = require('path');
 const os = require('os');
@@ -105,7 +105,7 @@ const userLogin = (req, res) => {
         })
 
 
-}
+};
 
 const uploadImage = (req, res) => {
     const busboy = new Busboy({ headers: req.headers });
@@ -156,7 +156,54 @@ const uploadImage = (req, res) => {
     });
     busboy.end(req.rawBody);
 
+};
+
+const addUserDetails = (req, res) => {
+    let userDetails = reduceUserDetails(req.body);
+    db
+        .doc(`/users/${req.user.handle}`)
+        .update(userDetails)
+        .then(() => {
+            return res.json({ message: "User details added successfuly" });
+        })
+        .catch(err => {
+            console.error(`Error while adding user details: ${err}`);
+            return res.status(500).json({ error: `Error while adding user details: ${err.code}` });
+        })
+
+};
+
+const getAuthenticatedUserProfile = (req, res) => {
+    let userData = {};
+    let likes = [];
+    db
+        .doc(`/users/${req.user.handle}`)
+        .get()
+        .then(doc => {
+            if (doc.exists) {
+                userData.credentials = doc.data();
+                return db
+                    .collection('likes')
+                    .where("userHandle", "==", req.user.handle)
+                    // .orderBy('createdAt', 'desc')
+                    .get();
+            }
+        })
+        .then(data => {
+            data.forEach(like => {
+                likes.push(like.data());
+            });
+            userData.likes = likes;
+            return res.json(userData);
+        })
+        .catch(err => {
+            console.error(`An error occured while fetching user details: ${err.code}`);
+            res.status(500).json({ error: `An error occured while fetching user details: ${err.code}` });
+
+        })
 }
+
+// Routes
 // Sign up route
 router.post('/signup', userSignup);
 // Log in route
@@ -164,6 +211,15 @@ router.post('/login', userLogin);
 
 // Image upload route
 router.post('/image', FBAuth, uploadImage);
+
+// Add user details
+router.post('/', FBAuth, addUserDetails);
+
+// Get authenticated user profile: details plus likes
+router.get('/', FBAuth, getAuthenticatedUserProfile)
+
+
+
 
 
 
